@@ -1,3 +1,13 @@
+#GCN层的定义
+
+#定义基类Layer
+#属性name(String)，定义了变量范围；logging(Boolean)，打开或关闭TensorFlow直方图日志记录；
+#方法：init()(初始化)，_call()(定义计算)，call()(调用_call()函数)，_log_vars()
+#定义Dense Layer类，继承自Layer类
+#定义GraphConvolution类，继承自Layer类
+
+
+
 from gcn.inits import *
 import tensorflow as tf
 
@@ -17,7 +27,7 @@ def get_layer_uid(layer_name=''):
         _LAYER_UIDS[layer_name] += 1
         return _LAYER_UIDS[layer_name]
 
-
+#稀疏矩阵的dropout操作
 def sparse_dropout(x, keep_prob, noise_shape):
     """Dropout for sparse tensors."""
     random_tensor = keep_prob
@@ -35,7 +45,7 @@ def dot(x, y, sparse=False):
         res = tf.matmul(x, y)
     return res
 
-
+#定义Layer层，主要作用是：对每层的name做了命名，还用一个参数决定是否做log
 class Layer(object):
     """Base layer class. Defines basic API for all layer objects.
     Implementation inspired by keras (http://keras.io).
@@ -68,6 +78,8 @@ class Layer(object):
     def _call(self, inputs):
         return inputs
 
+    
+    #__call__的作用让Layer的实例成为可调用对象
     def __call__(self, inputs):
         with tf.name_scope(self.name):
             if self.logging and not self.sparse_inputs:
@@ -81,7 +93,7 @@ class Layer(object):
         for var in self.vars:
             tf.summary.histogram(self.name + '/vars/' + var, self.vars[var])
 
-
+#根据 Layer 继承得到denseNet
 class Dense(Layer):
     """Dense layer."""
     def __init__(self, input_dim, output_dim, placeholders, dropout=0., sparse_inputs=False,
@@ -93,10 +105,10 @@ class Dense(Layer):
         else:
             self.dropout = 0.
 
-        self.act = act
-        self.sparse_inputs = sparse_inputs
-        self.featureless = featureless
-        self.bias = bias
+        self.act = act   #激活函数
+        self.sparse_inputs = sparse_inputs   #是否是稀疏数据
+        self.featureless = featureless      #输入的数据带不带特征矩阵
+        self.bias = bias   #是否有偏置
 
         # helper variable for sparse dropout
         self.num_features_nonzero = placeholders['num_features_nonzero']
@@ -110,6 +122,8 @@ class Dense(Layer):
         if self.logging:
             self._log_vars()
 
+            
+  #重写了_call 函数，其中对稀疏矩阵做 drop_out:sparse_dropout()
     def _call(self, inputs):
         x = inputs
 
@@ -128,7 +142,7 @@ class Dense(Layer):
 
         return self.act(output)
 
-
+#从 Layer 继承下来得到图卷积网络，与denseNet的唯一差别是_call函数和__init__函数（self.support = placeholders['support']的初始化）
 class GraphConvolution(Layer):
     """Graph convolution layer."""
     def __init__(self, input_dim, output_dim, placeholders, dropout=0.,
@@ -150,6 +164,7 @@ class GraphConvolution(Layer):
         # helper variable for sparse dropout
         self.num_features_nonzero = placeholders['num_features_nonzero']
 
+         # 下面是定义变量，主要是通过调用utils.py中的glorot函数实现
         with tf.variable_scope(self.name + '_vars'):
             for i in range(len(self.support)):
                 self.vars['weights_' + str(i)] = glorot([input_dim, output_dim],
@@ -169,8 +184,11 @@ class GraphConvolution(Layer):
         else:
             x = tf.nn.dropout(x, 1-self.dropout)
 
+            
+           
+        # convolve 卷积的实现。主要是根据论文中公式Z = \tilde{D}^{-1/2}\tilde{A}^{-1/2}X\theta实现
         # convolve
-        supports = list()
+        supports = list()#support是邻接矩阵的一个变化
         for i in range(len(self.support)):
             if not self.featureless:
                 pre_sup = dot(x, self.vars['weights_' + str(i)],
