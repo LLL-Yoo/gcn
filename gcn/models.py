@@ -1,3 +1,6 @@
+#模型结构的定义
+
+#定义了一个model基类，以及两个继承自model类的MLP、GCN类，主要来看GCN类的定义
 from gcn.layers import *
 from gcn.metrics import *
 
@@ -143,19 +146,23 @@ class GCN(Model):
 
         self.build()
 
+        #损失计算
     def _loss(self):
-        # Weight decay loss
+        # Weight decay loss #正则化项
         for var in self.layers[0].vars.values():
             self.loss += FLAGS.weight_decay * tf.nn.l2_loss(var)
 
-        # Cross entropy error
+        # Cross entropy error  #交叉熵损失函数
         self.loss += masked_softmax_cross_entropy(self.outputs, self.placeholders['labels'],
                                                   self.placeholders['labels_mask'])
 
+        #计算模型精确度
     def _accuracy(self):
         self.accuracy = masked_accuracy(self.outputs, self.placeholders['labels'],
                                         self.placeholders['labels_mask'])
 
+        
+        #构建模型，两层GCN
     def _build(self):
 
         self.layers.append(GraphConvolution(input_dim=self.input_dim,
@@ -173,5 +180,6 @@ class GCN(Model):
                                             dropout=True,
                                             logging=self.logging))
 
+        #模型预测
     def predict(self):
         return tf.nn.softmax(self.outputs)
