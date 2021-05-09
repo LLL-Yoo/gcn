@@ -5,7 +5,7 @@ import scipy.sparse as sp
 from scipy.sparse.linalg.eigen.arpack import eigsh
 import sys
 
-
+#处理index文件并返回index矩阵
 def parse_index_file(filename):
     """Parse index file."""
     index = []
@@ -14,6 +14,7 @@ def parse_index_file(filename):
     return index
 
 
+#创建mask并返回mask矩阵
 def sample_mask(idx, l):
     """Create mask."""
     mask = np.zeros(l)
@@ -21,7 +22,34 @@ def sample_mask(idx, l):
     return np.array(mask, dtype=np.bool)
 
 
+
+#读取数据
 def load_data(dataset_str):
+   
+    """
+    从gcn/data文件夹下读取数据，文件包括有：
+
+    ind.dataset_str.x => 训练实例的特征向量，如scipy.sparse.csr.csr_matrix类的实例
+
+    ind.dataset_str.tx => 测试实例的特征向量，如scipy.sparse.csr.csr_matrix类的实例
+
+    ind.dataset_str.allx => 有标签的+无无标签训练实例的特征向量，是ind.dataset_str.x的超集
+
+    ind.dataset_str.y => 训练实例的标签，独热编码，numpy.ndarray类的实例
+
+    ind.dataset_str.ty => 测试实例的标签，独热编码，numpy.ndarray类的实例
+
+    ind.dataset_str.ally => 有标签的+无无标签训练实例的标签，独热编码，numpy.ndarray类的实例
+
+    ind.dataset_str.graph => 图数据，collections.defaultdict类的实例，格式为 {index：[index_of_neighbor_nodes]}
+
+    ind.dataset_str.test.index => 测试实例的id
+    
+    """
+    
+    #上述文件必须都用python的pickle模块存储
+    #返回： adj, features, y_train, y_val, y_test, train_mask, val_mask, test_mask
+    
     """
     Loads input data from gcn/data directory
 
@@ -41,6 +69,9 @@ def load_data(dataset_str):
     :param dataset_str: Dataset name
     :return: All data input files loaded (as well the training/test data).
     """
+    
+    
+    
     names = ['x', 'y', 'tx', 'ty', 'allx', 'ally', 'graph']
     objects = []
     for i in range(len(names)):
@@ -89,7 +120,7 @@ def load_data(dataset_str):
 
     return adj, features, y_train, y_val, y_test, train_mask, val_mask, test_mask
 
-
+#将矩阵转换成tuple格式并返回
 def sparse_to_tuple(sparse_mx):
     """Convert sparse matrix to tuple representation."""
     def to_tuple(mx):
@@ -109,6 +140,7 @@ def sparse_to_tuple(sparse_mx):
     return sparse_mx
 
 
+#处理特征:将特征进行归一化并返回tuple (coords, values, shape)
 def preprocess_features(features):
     """Row-normalize feature matrix and convert to tuple representation"""
     rowsum = np.array(features.sum(1))
@@ -119,6 +151,7 @@ def preprocess_features(features):
     return sparse_to_tuple(features)
 
 
+#图归一化并返回
 def normalize_adj(adj):
     """Symmetrically normalize adjacency matrix."""
     adj = sp.coo_matrix(adj)
@@ -129,12 +162,13 @@ def normalize_adj(adj):
     return adj.dot(d_mat_inv_sqrt).transpose().dot(d_mat_inv_sqrt).tocoo()
 
 
+#处理得到GCN中的归一化矩阵并返回
 def preprocess_adj(adj):
     """Preprocessing of adjacency matrix for simple GCN model and conversion to tuple representation."""
     adj_normalized = normalize_adj(adj + sp.eye(adj.shape[0]))
     return sparse_to_tuple(adj_normalized)
 
-
+#构造输入字典并返回
 def construct_feed_dict(features, support, labels, labels_mask, placeholders):
     """Construct feed dictionary."""
     feed_dict = dict()
@@ -146,6 +180,7 @@ def construct_feed_dict(features, support, labels, labels_mask, placeholders):
     return feed_dict
 
 
+#切比雪夫多项式近似：计算K阶的切比雪夫近似矩阵
 def chebyshev_polynomials(adj, k):
     """Calculate Chebyshev polynomials up to order k. Return a list of sparse matrices (tuple representation)."""
     print("Calculating Chebyshev polynomials up to order {}...".format(k))
@@ -155,10 +190,14 @@ def chebyshev_polynomials(adj, k):
     largest_eigval, _ = eigsh(laplacian, 1, which='LM')
     scaled_laplacian = (2. / largest_eigval[0]) * laplacian - sp.eye(adj.shape[0])
 
+    
+     # 将切比雪夫多项式的 T_0(x) = 1和 T_1(x) = x 项加入到t_k中
     t_k = list()
     t_k.append(sp.eye(adj.shape[0]))
     t_k.append(scaled_laplacian)
 
+    
+        # 依据公式 T_n(x) = 2xT_n(x) - T_{n-1}(x) 构造递归程序，计算T_2 -> T_k项目
     def chebyshev_recurrence(t_k_minus_one, t_k_minus_two, scaled_lap):
         s_lap = sp.csr_matrix(scaled_lap, copy=True)
         return 2 * s_lap.dot(t_k_minus_one) - t_k_minus_two
