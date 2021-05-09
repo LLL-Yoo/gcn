@@ -4,8 +4,7 @@
 #属性name(String)，定义了变量范围；logging(Boolean)，打开或关闭TensorFlow直方图日志记录；
 #方法：init()(初始化)，_call()(定义计算)，call()(调用_call()函数)，_log_vars()
 #定义Dense Layer类，继承自Layer类
-#定义GraphConvolution类，继承自Layer类
-
+#定义GraphConvolution类，继承自Layer类，下面是这个类的实现
 
 
 from gcn.inits import *
@@ -178,7 +177,7 @@ class GraphConvolution(Layer):
     def _call(self, inputs):
         x = inputs
 
-        # dropout
+        # dropout   设置dropout
         if self.sparse_inputs:
             x = sparse_dropout(x, 1-self.dropout, self.num_features_nonzero)
         else:
