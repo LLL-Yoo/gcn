@@ -25,9 +25,9 @@ def masked_accuracy(preds, labels, mask):
     """Accuracy with masking."""
     #计算掩膜的精确性
     correct_prediction = tf.equal(tf.argmax(preds, 1), tf.argmax(labels, 1))
+
+        #tf.cast()函数的作用是执行 tensorflow 中张量数据类型转换，比如把int8转换为float32。
     accuracy_all = tf.cast(correct_prediction, tf.float32)
-    
-    #tf.cast()函数的作用是执行 tensorflow 中张量数据类型转换，比如把int8转换为float32。
     mask = tf.cast(mask, dtype=tf.float32)
     mask /= tf.reduce_mean(mask)
     accuracy_all *= mask
