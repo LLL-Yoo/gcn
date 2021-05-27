@@ -8,10 +8,12 @@ import tensorflow as tf
 # 即只对带标签的样本计算损失。
 # 注：loss的shape与mask的shape相同，等于样本的数量：(None,），所以 loss *= mask 是向量点乘。
 
-#带logits的softmax交叉熵 logits:logits就是一个向量，下一步将被投给 softmax 的向量,是未进入softmax的概率，一般是全连接层的输出，softmax的输入
 def masked_softmax_cross_entropy(preds, labels, mask):     
     """Softmax cross-entropy loss with masking."""
     #带掩膜的softmax交叉熵计算
+    
+    
+#带logits的softmax交叉熵 logits:logits就是一个向量，下一步将被投给 softmax 的向量,是未进入softmax的概率，一般是全连接层的输出，softmax的输入
     loss = tf.nn.softmax_cross_entropy_with_logits(logits=preds, labels=labels)
     mask = tf.cast(mask, dtype=tf.float32)
     mask /= tf.reduce_mean(mask)
